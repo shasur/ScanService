@@ -1,0 +1,12 @@
+version: '3'
+services:
+  scanner-service:
+    build: .
+    environment:
+      - SCANNER_IP=${SCANNER_IP:-127.0.0.1}
+      - SCANNER_PORT=${SCANNER_PORT:-9100}
+      - MQTT_BROKER=${MQTT_BROKER:-localhost}
+      - MQTT_PORT=${MQTT_PORT:-1883}
+      - MQTT_TOPIC=${MQTT_TOPIC:-thetoplevel/codeit/scanner}
+    volumes:
+      - ./config.yaml:/app/config.yaml

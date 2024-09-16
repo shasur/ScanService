@@ -1,0 +1,3 @@
+ScanService/requirements.txt
+pyyaml
+paho-mqtt

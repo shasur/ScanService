@@ -1,0 +1,10 @@
+scanner:
+  ip: "127.0.0.1"
+  port: 9100
+
+mqtt:
+  broker: "localhost"
+  port: 1883
+  topic: "thetoplevel/codeit/scanner"
+
+
