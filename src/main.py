@@ -28,7 +28,9 @@ def cleanup():
     if mqtt_publisher:
         mqtt_publisher.publish_ndeath()
         # Add a small delay to allow the NDEATH message to be sent
-        asyncio.get_event_loop().run_until_complete(asyncio.sleep(0.5))
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        loop.run_until_complete(asyncio.sleep(0.5))
         mqtt_publisher.disconnect()
     if logger:
         logger.info("Cleanup completed. Exiting.")

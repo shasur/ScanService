@@ -61,10 +61,16 @@ class MqttPublisher:
     def connect(self):
         """Establish connection to the MQTT broker."""
         try:
+            self.logger.info(f"Attempting to connect to MQTT broker at {self.broker}:{self.port}")
             self.client.connect(self.broker, self.port)
             self.client.loop_start()
+            self.logger.info("MQTT client loop started")
         except Exception as e:
             self.logger.error(f"Error connecting to MQTT broker: {e}")
+            self.logger.error(f"Broker: {self.broker}, Port: {self.port}")
+            self.logger.error(f"Client ID: {self.client_id}")
+            self.logger.exception("Full exception traceback:")
+            raise  # Re-raise the exception to be handled by the caller
 
     def _get_next_sequence_number(self, topic):
         """Get the next sequence number for a given topic."""

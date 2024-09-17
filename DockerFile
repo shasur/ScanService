@@ -1,16 +1,33 @@
-FROM python:3.9-slim
+FROM mcr.microsoft.com/windows/servercore:ltsc2019
+SHELL ["powershell", "-Command", "$ErrorActionPreference = 'Stop'; $ProgressPreference = 'SilentlyContinue';"]
 
+# Install Python
+RUN Invoke-WebRequest -Uri https://www.python.org/ftp/python/3.9.7/python-3.9.7-amd64.exe -OutFile python-3.9.7-amd64.exe ; \
+    Start-Process python-3.9.7-amd64.exe -ArgumentList '/quiet InstallAllUsers=1 PrependPath=1' -Wait ; \
+    Remove-Item python-3.9.7-amd64.exe -Force
+
+# Set up app directory
 WORKDIR /app
 
+# Copy requirements file
 COPY requirements.txt .
+
+# Update pip
+RUN python -m pip install --upgrade pip
+
+# Install dependencies
 RUN pip install --no-cache-dir -r requirements.txt
 
-COPY . .
+# Copy app files
+COPY src ./src
+COPY config.yaml .
 
+# Set environment variables
 ENV SCANNER_IP=127.0.0.1
 ENV SCANNER_PORT=9100
 ENV MQTT_BROKER=localhost
 ENV MQTT_PORT=1883
 ENV MQTT_TOPIC=thetoplevel/codeit/scanner
 
+# Run the application
 CMD ["python", "src/main.py"]
