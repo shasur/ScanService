@@ -41,7 +41,7 @@ def signal_handler(signum, frame):
     if logger:
         logger.info(f"Received signal {signum}. Initiating shutdown...")
     cleanup()
-    exit(0)
+    sys.exit(0)
 
 async def main():
     global mqtt_publisher, scanner_client, logger
