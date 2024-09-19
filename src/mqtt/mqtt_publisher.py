@@ -1,6 +1,8 @@
 import json
 import time
 from datetime import datetime, timezone
+import socket
+import os
 from paho.mqtt import client as mqtt_client
 from utils.logger import get_logger
 
@@ -41,6 +43,17 @@ class MqttPublisher:
         self.last_scan_time = None
         self.topic_prefix = mqtt_config['topic']
         self.sequence_numbers = {}  # Dictionary to store sequence numbers for each topic
+
+        # Remove the Docker client initialization
+        # self.docker_client = docker.from_env()
+
+        # Instead, get Docker information from environment variables
+        self.image_id = os.environ.get('DOCKER_IMAGE_ID', '')
+        self.image_name = os.environ.get('DOCKER_IMAGE_NAME', '')
+        self.image_tag = os.environ.get('DOCKER_IMAGE_TAG', '')
+        self.container_id = os.environ.get('HOSTNAME', '')
+        self.container_name = os.environ.get('DOCKER_CONTAINER_NAME', '')
+        self.container_port = os.environ.get('DOCKER_CONTAINER_PORT', '')
 
     def on_connect(self, client, userdata, flags, rc, properties=None):
         """Callback for when the client receives a CONNACK response from the server."""
@@ -94,133 +107,118 @@ class MqttPublisher:
         except Exception as e:
             self.logger.error(f"Error publishing {suffix} message to {topic}: {e}")
 
-    def publish_nbirth(self, startup_log="Service started without any error"):
+    def publish_ndeath(self, status):
+        """Publish the NDEATH message."""
+        payload = {
+            "timestamp": int(time.time() * 1000),
+            "status": status
+        }
+        self._publish_message("NDEATH", payload)
+
+    def publish_dbirth(self):
+        """Publish the DBIRTH message."""
+        payload = {
+            "timestamp": int(time.time() * 1000),
+            "ipaddress": socket.gethostbyname(socket.gethostname()),
+            "port": self.port
+        }
+        self._publish_message("DBIRTH", payload)
+
+    def publish_nbirth(self):
         """Publish the NBIRTH message."""
-        if not self.connected:
-            self.logger.error("Cannot publish NBIRTH: Not connected to MQTT broker")
-            return
-        
-        nbirth_payload = {
-            "timestamp": datetime.now(timezone.utc).isoformat(),
-            "dataType": "String",
-            "service_id": self.service_id,
-            "scanner_config": {
-                "ip": self.scanner_ip,
-                "port": self.scanner_port
-            },
-            "metrics": [
+        payload = {
+            "Service": [
                 {
-                    "name": "Node Control/Rebirth",
-                    "value": self.service_started_correctly,
-                    "type": "Boolean"
-                },
-                {
-                    "name": "Node Control/SetIPAndPort",
-                    "value": f"{{Parameters: {{IP: {self.scanner_ip}, Port: {self.scanner_port}}}, ClientId: {self.client_id}}}",
-                    "type": "String"
-                },
-                {
-                    "name": "Node Control/SetServiceSettings",
-                    "value": json.dumps({
-                        "Parameters": {
-                            "StartCode": self.scanner_start_code,
-                            "EndCode": self.scanner_end_code,
-                            "HeartbeatFrequency": self.heartbeat_frequency,
-                            "HeartbeatFormat": self.scanner_heartbeat_format,
-                            "Setting1": "<value>",
-                            "Setting2": "<value>"
-                        },
-                        "ClientId": "<requester id>"
-                    }),
-                    "type": "String"
-                },
-                {
-                    "name": "LogInfo",
-                    "value": startup_log,
-                    "type": "String"
+                    "timestamp": int(time.time() * 1000),
+                    "ComputerName": socket.gethostname(),
+                    "UserDomainName": os.environ.get('USERDOMAIN', 'N/A'),
+                    "ExePath": os.path.dirname(os.path.abspath(__file__)),
+                    "ProjectPath": os.getcwd(),
+                    "ServiceVersion": "1.0.0",  # Update this with your actual version
+                    "ConfigVersion": "1.0.0"  # Update this with your actual config version
                 }
             ],
-            "seq": 0
-        }
-        
-        self._publish_message("NBIRTH", nbirth_payload)
-
-    def publish_ndeath(self):
-        """Publish the NDEATH message."""
-        if not self.connected:
-            self.logger.error("Cannot publish NDEATH: Not connected to MQTT broker")
-            return
-        ndeath_payload = {
-            "timestamp": datetime.now(timezone.utc).isoformat(),
-            "dataType": "String",
-            "service_id": self.service_id,
-            "metrics": [
-                {"name": "bdSeq", "value": self.bd_seq, "type": "Int64"}
+            "Docker": [
+                {
+                    "Image": [
+                        {
+                            "ID": self.image_id,
+                            "Name": self.image_name,
+                            "Tag (version)": self.image_tag
+                        }
+                    ],
+                    "Container": [
+                        {
+                            "ID": self.container_id,
+                            "Name": self.container_name,
+                            "Port": self.container_port
+                        }
+                    ]
+                }
             ]
         }
-        self._publish_message("NDEATH", ndeath_payload)
+        self._publish_message("NBIRTH", payload)
 
-    def publish_connection(self, status: bool):
-        """Publish the connection status."""
+    def publish_ddata(self, scan_data, parsed_ais=None, is_noread=False):
+        """Publish a scan result or noread event."""
         payload = {
-            "timestamp": datetime.now(timezone.utc).isoformat(),
-            "dataType": "Boolean",
-            "status": status
-        }
-        self._publish_message("Connection", payload)
-
-    def publish_ping(self, status: bool):
-        """Publish the ping status."""
-        payload = {
-            "timestamp": datetime.now(timezone.utc).isoformat(),
-            "dataType": "Boolean",
-            "status": status
-        }
-        self._publish_message("Ping", payload)
-
-    def publish_keep_alive(self, heartbeat_text: str = None):
-        """Publish the keep-alive status."""
-        current_time = datetime.now(timezone.utc)
-        if heartbeat_text:
-            self.last_heartbeat_time = current_time
-            payload = {
-                "timestamp": self.last_heartbeat_time.isoformat(),
-                "dataType": "String",
-                "status": "active",
-                "heartbeatText": heartbeat_text
-            }
-        else:
-            payload = {
-                "timestamp": current_time.isoformat(),
-                "dataType": "String",
-                "status": "timeout",
-                "message": "No heartbeat received for 60 seconds"
-            }
-        self._publish_message("KeepAlive", payload)
-
-    def publish_noread(self):
-        """Publish a no-read event."""
-        self.last_noread_time = datetime.now(timezone.utc)
-        payload = {
-            "timestamp": self.last_noread_time.isoformat(),
+            "timestamp": int(time.time() * 1000),
             "dataType": "String",
-            "status": "noread"
+            "data": scan_data if not is_noread else "NOREAD",
+            "parsedAIs": parsed_ais if parsed_ais else "no AI",
+            "isNoRead": is_noread
         }
-        self._publish_message("Noread", payload)
+        self._publish_message("DDATA", payload)
 
-    def publish_scan_result(self, scan_data, parsed_ais):
-        """Publish a scan result."""
-        self.last_scan_time = datetime.now(timezone.utc)
+    def publish_dstatus(self, is_connected, is_port_open, is_heartbeat_ok):
+        """Publish the DSTATUS message."""
+        status = "OK" if is_connected and is_port_open and is_heartbeat_ok else "NOK"
+        description = self._get_status_description(is_connected, is_port_open, is_heartbeat_ok)
+        
         payload = {
-            "timestamp": self.last_scan_time.isoformat(),
-            "dataType": "String",
-            "data": scan_data,
-            "parsedAIs": parsed_ais if parsed_ais else "no AI"
+            "Status": [
+                {
+                    "timestamp": int(time.time() * 1000),
+                    "Connected": str(is_connected).lower(),
+                    "State": status,
+                    "Description": description
+                }
+            ],
+            "Connection": [
+                {
+                    "IP": str(is_connected).lower(),
+                    "Port": str(is_port_open).lower(),
+                    "HeartBeat": str(is_heartbeat_ok).lower()
+                }
+            ]
         }
-        self._publish_message("ScanResult", payload)
+        self._publish_message("DSTATUS", payload)
+
+    def _get_status_description(self, is_connected, is_port_open, is_heartbeat_ok):
+        if is_connected and is_port_open and is_heartbeat_ok:
+            return "Connected"
+        elif is_connected and not is_port_open:
+            return "Network reachable, service port inaccessible"
+        elif not is_connected:
+            return "Port/endpoint unreachable"
+        elif not is_heartbeat_ok:
+            return "Missing Heartbeat"
 
     def disconnect(self):
         """Disconnect from the MQTT broker."""
         self.client.loop_stop()
         self.client.disconnect()
         self.logger.info("Disconnected from MQTT Broker")
+
+    def test_dstatus_publishing(self):
+        """Test method to verify DSTATUS publishing"""
+        test_cases = [
+            (True, True, True),   # All OK
+            (True, False, True),  # IP reachable, port closed, heartbeat OK
+            (True, False, False), # IP reachable, port closed, no heartbeat
+            (False, False, False) # Nothing reachable
+        ]
+        
+        for is_connected, is_port_open, is_heartbeat_ok in test_cases:
+            self.logger.info(f"Testing DSTATUS with IP: {is_connected}, Port: {is_port_open}, Heartbeat: {is_heartbeat_ok}")
+            self.publish_dstatus(is_connected, is_port_open, is_heartbeat_ok)

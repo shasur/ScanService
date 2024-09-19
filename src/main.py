@@ -26,7 +26,7 @@ def cleanup():
     if scanner_client:
         scanner_client.disconnect_sync()
     if mqtt_publisher:
-        mqtt_publisher.publish_ndeath()
+        mqtt_publisher.publish_ndeath("OFFLINE")
         # Add a small delay to allow the NDEATH message to be sent
         loop = asyncio.new_event_loop()
         asyncio.set_event_loop(loop)
@@ -65,6 +65,8 @@ async def main():
         await asyncio.sleep(0.5)
 
     if mqtt_publisher.connected:
+        # Publish ONLINE status to NDEATH topic
+        mqtt_publisher.publish_ndeath("ONLINE")
         # If everything started correctly
         mqtt_publisher.publish_nbirth()
     else:
@@ -91,6 +93,8 @@ async def main():
             await scanner_task
         except asyncio.CancelledError:
             pass
+        # Publish OFFLINE status to NDEATH topic
+        mqtt_publisher.publish_ndeath("OFFLINE")
 
 if __name__ == "__main__":
     # Register the cleanup function to be called on normal program exit
