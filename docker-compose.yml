@@ -7,6 +7,7 @@ services:
       - SCANNER_PORT=${SCANNER_PORT:-9100}
       - MQTT_BROKER=${MQTT_BROKER:-localhost}
       - MQTT_PORT=${MQTT_PORT:-1883}
-      - MQTT_TOPIC=${MQTT_TOPIC:-thetoplevel/codeit/scanner}
+      - MQTT_GROUP_ID=${MQTT_GROUP_ID:-thetoplevel/codeit}
+      - MQTT_EDGE_NODE_ID_DEVICE_ID=${MQTT_EDGE_NODE_ID_DEVICE_ID:-HOG/LineA/Scanner-Test}
     volumes:
       - ./config.yaml:/app/config.yaml

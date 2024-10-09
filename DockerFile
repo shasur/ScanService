@@ -18,7 +18,8 @@ ENV SCANNER_IP=127.0.0.1 \
     SCANNER_PORT=9100 \
     MQTT_BROKER=localhost \
     MQTT_PORT=1883 \
-    MQTT_TOPIC=thetoplevel/codeit/scanner
+    MQTT_GROUP_ID=thetoplevel/codeit \
+    MQTT_EDGE_NODE_ID_DEVICE_ID=HOG/LineA/Scanner-Test
 
 # Run main.py when the container launches
 CMD ["python", "src/main.py"]

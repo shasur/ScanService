@@ -3,6 +3,7 @@ import asyncio
 import atexit
 import signal
 from pathlib import Path
+import os
 
 # Add the parent directory of 'src' to the Python path
 sys.path.append(str(Path(__file__).parent.parent))
@@ -56,6 +57,7 @@ async def main():
 
     # Initialize components
     mqtt_publisher = MqttPublisher(config)
+    # The base_topic is now set in the MqttPublisher constructor
     mqtt_publisher.connect()
 
     # Wait for MQTT connection to be established
@@ -97,6 +99,8 @@ async def main():
         mqtt_publisher.publish_ndeath("OFFLINE")
 
 if __name__ == "__main__":
+    # Remove the argument parsing
+    
     # Register the cleanup function to be called on normal program exit
     atexit.register(cleanup)
 

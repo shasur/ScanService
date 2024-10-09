@@ -15,7 +15,7 @@ class MqttPublisher:
         # Set up MQTT client parameters
         self.broker = mqtt_config['broker']
         self.port = mqtt_config['port']
-        self.base_topic = mqtt_config['topic']
+        self.base_topic = os.getenv('MQTT_BASE_TOPIC', '')  # Get base topic from environment variable
         self.service_name = "ScannerService"
         self.scanner_ip = scanner_config['ip']
         self.scanner_port = scanner_config['port']
@@ -41,7 +41,8 @@ class MqttPublisher:
         self.last_heartbeat_time = None
         self.last_noread_time = None
         self.last_scan_time = None
-        self.topic_prefix = mqtt_config['topic']
+        self.topic_prefix = "thetoplevel/codeit"
+        self.base_topic = os.getenv('MQTT_BASE_TOPIC', '')  # Get base topic from environment variable
         self.sequence_numbers = {}  # Dictionary to store sequence numbers for each topic
 
         # Remove the Docker client initialization
@@ -54,6 +55,10 @@ class MqttPublisher:
         self.container_id = os.environ.get('HOSTNAME', '')
         self.container_name = os.environ.get('DOCKER_CONTAINER_NAME', '')
         self.container_port = os.environ.get('DOCKER_CONTAINER_PORT', '')
+
+        # Update group_id and edge_node_id_device_id
+        self.group_id = os.getenv('MQTT_GROUP_ID', 'thetoplevel/codeit')
+        self.edge_node_id_device_id = os.getenv('MQTT_EDGE_NODE_ID_DEVICE_ID', '')
 
     def on_connect(self, client, userdata, flags, rc, properties=None):
         """Callback for when the client receives a CONNACK response from the server."""
@@ -93,19 +98,19 @@ class MqttPublisher:
             self.sequence_numbers[topic] = (self.sequence_numbers[topic] + 1) % 1001
         return self.sequence_numbers[topic]
 
-    def _publish_message(self, suffix: str, payload: dict):
+    def _publish_message(self, message_type: str, payload: dict):
         """Publish a message to a specific topic with a sequence number."""
-        topic = f"{self.base_topic}/{suffix}"
+        topic = f"{self.group_id}/{message_type}/{self.edge_node_id_device_id}"
         seq_no = self._get_next_sequence_number(topic)
         payload['seqNo'] = seq_no
         try:
             result = self.client.publish(topic, json.dumps(payload))
             if result[0] == 0:
-                self.logger.debug(f"Published {suffix} message to {topic}: {payload}")
+                self.logger.debug(f"Published {message_type} message to {topic}: {payload}")
             else:
-                self.logger.error(f"Failed to publish {suffix} message to {topic}, result code: {result[0]}")
+                self.logger.error(f"Failed to publish {message_type} message to {topic}, result code: {result[0]}")
         except Exception as e:
-            self.logger.error(f"Error publishing {suffix} message to {topic}: {e}")
+            self.logger.error(f"Error publishing {message_type} message to {topic}: {e}")
 
     def publish_ndeath(self, status):
         """Publish the NDEATH message."""
